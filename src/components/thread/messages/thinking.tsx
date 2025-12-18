@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ChevronDown, ChevronRight, Brain, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -107,6 +107,37 @@ interface ThinkingProps {
 
 export function Thinking({ content, children, isLoading = false }: ThinkingProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isLoading) {
+      if (startTimeRef.current === null) {
+        startTimeRef.current = Date.now() - duration;
+      }
+      interval = setInterval(() => {
+        if (startTimeRef.current !== null) {
+          setDuration(Date.now() - startTimeRef.current);
+        }
+      }, 100);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isLoading]);
+
+  const formatDuration = (ms: number) => {
+    if (ms < 1000 && ms > 0) return `${(ms / 1000).toFixed(1)}s`;
+    if (ms === 0) return "0s";
+    
+    if (ms < 60000) {
+      return `${(ms / 1000).toFixed(1)}s`;
+    }
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}m ${seconds}s`;
+  };
 
   if (!content && !children && !isLoading) return null;
 
@@ -121,7 +152,7 @@ export function Thinking({ content, children, isLoading = false }: ThinkingProps
         ) : (
           <Brain className="h-3.5 w-3.5" />
         )}
-        <span>Thinking Process</span>
+        <span>Thinking Process ({formatDuration(duration)})</span>
         {isOpen ? (
           <ChevronDown className="ml-auto h-3.5 w-3.5" />
         ) : (

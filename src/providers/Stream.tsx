@@ -112,6 +112,23 @@ const StreamSession = ({
       // Wait for some seconds before fetching so we're able to get the new thread that was created.
       sleep().then(() => getThreads().then(setThreads).catch(console.error));
     },
+    onError: (error) => {
+      if (error.message.includes("pickle") || error.message.includes("lock")) {
+        toast.error("Backend Error: Serialization Failed", {
+          description: "The backend attempted to save a non-serializable object (like a thread lock) to the state. Please check your backend code to ensure only JSON-serializable data is stored in the state.",
+          duration: 10000,
+          richColors: true,
+          closeButton: true,
+        });
+      } else {
+        toast.error("Stream Error", {
+          description: error.message,
+          duration: 5000,
+          richColors: true,
+          closeButton: true,
+        });
+      }
+    },
   });
 
   useEffect(() => {
