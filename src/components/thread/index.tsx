@@ -45,6 +45,8 @@ import {
   ArtifactTitle,
   useArtifactContext,
 } from "./artifact";
+import { BaseMessage } from "@langchain/core/messages";
+import { AssistantTurn } from "./messages/assistant-turn";
 
 function StickyToBottomContent(props: {
   content: ReactNode;
@@ -326,7 +328,7 @@ export function Thread() {
                 )}
               </div>
               <div className="absolute top-2 right-4 flex items-center">
-                <OpenGitHubRepo />
+                {/* <OpenGitHubRepo /> */}
               </div>
             </div>
           )}
@@ -360,28 +362,29 @@ export function Thread() {
                     damping: 30,
                   }}
                 >
-                  <LangGraphLogoSVG
+                  {/* <LangGraphLogoSVG
                     width={32}
                     height={32}
-                  />
+                  /> */}
                   <span className="text-xl font-semibold tracking-tight">
-                    Agent Chat
+                    Euler Copilot
                   </span>
                 </motion.button>
               </div>
 
               <div className="flex items-center gap-4">
-                <div className="flex items-center">
+                {/* <div className="flex items-center">
                   <OpenGitHubRepo />
-                </div>
+                </div> */}
                 <TooltipIconButton
                   size="lg"
-                  className="p-4"
+                  className="p-4 gap-2 w-auto"
                   tooltip="New thread"
                   variant="ghost"
                   onClick={() => setThreadId(null)}
                 >
                   <SquarePen className="size-5" />
+                  <span className="text-sm font-medium">New Thread</span>
                 </TooltipIconButton>
               </div>
 
@@ -401,22 +404,39 @@ export function Thread() {
                 <>
                   {messages
                     .filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX))
-                    .map((message, index) =>
-                      message.type === "human" ? (
-                        <HumanMessage
-                          key={message.id || `${message.type}-${index}`}
-                          message={message}
-                          isLoading={isLoading}
-                        />
-                      ) : (
-                        <AssistantMessage
-                          key={message.id || `${message.type}-${index}`}
-                          message={message}
-                          isLoading={isLoading}
-                          handleRegenerate={handleRegenerate}
-                        />
-                      ),
-                    )}
+                    .reduce((acc, message, index, array) => {
+                      const lastGroup = acc[acc.length - 1];
+                      if (message.type === "human") {
+                        acc.push({ type: "human", messages: [message] });
+                      } else {
+                        if (lastGroup && lastGroup.type === "assistant") {
+                          lastGroup.messages.push(message);
+                        } else {
+                          acc.push({ type: "assistant", messages: [message] });
+                        }
+                      }
+                      return acc;
+                    }, [] as { type: "human" | "assistant"; messages: BaseMessage[] }[])
+                    .map((group, groupIndex) => {
+                      if (group.type === "human") {
+                        return (
+                          <HumanMessage
+                            key={group.messages[0].id || `human-${groupIndex}`}
+                            message={group.messages[0]}
+                            isLoading={isLoading}
+                          />
+                        );
+                      } else {
+                        return (
+                          <AssistantTurn
+                            key={group.messages[0].id || `assistant-turn-${groupIndex}`}
+                            messages={group.messages}
+                            isLoading={isLoading}
+                            handleRegenerate={handleRegenerate}
+                          />
+                        );
+                      }
+                    })}
                   {/* Special rendering case where there are no AI/tool messages, but there is an interrupt.
                     We need to render it outside of the messages list, since there are no messages to render */}
                   {hasNoAIOrToolMessages && !!stream.interrupt && (
@@ -438,7 +458,7 @@ export function Thread() {
                     <div className="flex items-center gap-3">
                       <LangGraphLogoSVG className="h-8 flex-shrink-0" />
                       <h1 className="text-2xl font-semibold tracking-tight">
-                        Agent Chat
+                        Euler Copilot
                       </h1>
                     </div>
                   )}
@@ -485,7 +505,7 @@ export function Thread() {
 
                       <div className="flex items-center gap-6 p-2 pt-4">
                         <div>
-                          <div className="flex items-center space-x-2">
+                          {/* <div className="flex items-center space-x-2">
                             <Switch
                               id="render-tool-calls"
                               checked={hideToolCalls ?? false}
@@ -497,9 +517,9 @@ export function Thread() {
                             >
                               Hide Tool Calls
                             </Label>
-                          </div>
+                          </div> */}
                         </div>
-                        <Label
+                        {/* <Label
                           htmlFor="file-input"
                           className="flex cursor-pointer items-center gap-2"
                         >
@@ -507,7 +527,7 @@ export function Thread() {
                           <span className="text-sm text-gray-600">
                             Upload PDF or Image
                           </span>
-                        </Label>
+                        </Label> */}
                         <input
                           id="file-input"
                           type="file"

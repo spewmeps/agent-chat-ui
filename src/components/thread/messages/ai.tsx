@@ -14,6 +14,8 @@ import { ThreadView } from "../agent-inbox";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { GenericInterruptView } from "./generic-interrupt";
 import { useArtifact } from "../artifact";
+import { useMemo } from "react";
+import { Thinking } from "./thinking";
 
 function CustomComponent({
   message,
@@ -102,10 +104,12 @@ export function AssistantMessage({
   message,
   isLoading,
   handleRegenerate,
+  hideControls = false,
 }: {
   message: Message | undefined;
   isLoading: boolean;
   handleRegenerate: (parentCheckpoint: Checkpoint | null | undefined) => void;
+  hideControls?: boolean;
 }) {
   const content = message?.content ?? [];
   const contentString = getContentString(content);
@@ -141,6 +145,21 @@ export function AssistantMessage({
   const hasAnthropicToolCalls = !!anthropicStreamedToolCalls?.length;
   const isToolResult = message?.type === "tool";
 
+  const { thinking, content: finalContent } = useMemo(() => {
+    if (!contentString) return { thinking: null, content: "" };
+
+    const thinkMatch = contentString.match(/<think>([\s\S]*?)(?:<\/think>|$)/);
+    if (thinkMatch) {
+      const thinking = thinkMatch[1];
+      const content = contentString
+        .replace(/<think>[\s\S]*?(?:<\/think>|$)/, "")
+        .trim();
+      return { thinking, content };
+    }
+
+    return { thinking: null, content: contentString };
+  }, [contentString]);
+
   if (isToolResult && hideToolCalls) {
     return null;
   }
@@ -159,9 +178,10 @@ export function AssistantMessage({
           </>
         ) : (
           <>
-            {contentString.length > 0 && (
+            {thinking && <Thinking content={thinking} />}
+            {finalContent.length > 0 && (
               <div className="py-1">
-                <MarkdownText>{contentString}</MarkdownText>
+                <MarkdownText>{finalContent}</MarkdownText>
               </div>
             )}
 
@@ -194,6 +214,7 @@ export function AssistantMessage({
               className={cn(
                 "mr-auto flex items-center gap-2 transition-opacity",
                 "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
+                hideControls && "hidden"
               )}
             >
               <BranchSwitcher
