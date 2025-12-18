@@ -4,9 +4,10 @@ import React, {
   ReactNode,
   useState,
   useEffect,
+  useMemo,
 } from "react";
 import { useStream } from "@langchain/langgraph-sdk/react";
-import { type Message } from "@langchain/langgraph-sdk";
+import { type Message, Client } from "@langchain/langgraph-sdk";
 import {
   uiMessageReducer,
   isUIMessage,
@@ -24,6 +25,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { getApiKey } from "@/lib/api-key";
 import { useThreads } from "./Thread";
 import { toast } from "sonner";
+import { patchClient } from "@/lib/patch-langgraph-client";
 
 export type StateType = { messages: Message[]; ui?: UIMessage[] };
 
@@ -79,7 +81,18 @@ const StreamSession = ({
 }) => {
   const [threadId, setThreadId] = useQueryState("threadId");
   const { getThreads, setThreads } = useThreads();
+
+  const client = useMemo(() => {
+    return patchClient(
+      new Client({
+        apiUrl,
+        apiKey: apiKey ?? undefined,
+      })
+    );
+  }, [apiUrl, apiKey]);
+
   const streamValue = useTypedStream({
+    client,
     apiUrl,
     apiKey: apiKey ?? undefined,
     assistantId,
@@ -170,11 +183,11 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
             <div className="flex flex-col items-start gap-2">
               <LangGraphLogoSVG className="h-7" />
               <h1 className="text-xl font-semibold tracking-tight">
-                Agent Chat
+                Euler Copilot
               </h1>
             </div>
             <p className="text-muted-foreground">
-              Welcome to Agent Chat! Before you get started, you need to enter
+              Welcome to Euler Copilot! Before you get started, you need to enter
               the URL of the deployment and the assistant / graph ID.
             </p>
           </div>
