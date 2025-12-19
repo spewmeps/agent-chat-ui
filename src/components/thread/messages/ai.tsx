@@ -69,37 +69,6 @@ function parseAnthropicStreamedToolCalls(
   });
 }
 
-interface InterruptProps {
-  interrupt?: unknown;
-  isLastMessage: boolean;
-  hasNoAIOrToolMessages: boolean;
-}
-
-function Interrupt({
-  interrupt,
-  isLastMessage,
-  hasNoAIOrToolMessages,
-}: InterruptProps) {
-  const fallbackValue = Array.isArray(interrupt)
-    ? (interrupt as Record<string, any>[])
-    : (((interrupt as { value?: unknown } | undefined)?.value ??
-        interrupt) as Record<string, any>);
-
-  return (
-    <>
-      {isAgentInboxInterruptSchema(interrupt) &&
-        (isLastMessage || hasNoAIOrToolMessages) && (
-          <ThreadView interrupt={interrupt} />
-        )}
-      {interrupt &&
-      !isAgentInboxInterruptSchema(interrupt) &&
-      (isLastMessage || hasNoAIOrToolMessages) ? (
-        <GenericInterruptView interrupt={fallbackValue} />
-      ) : null}
-    </>
-  );
-}
-
 export function AssistantMessage({
   message,
   isLoading,
@@ -170,11 +139,6 @@ export function AssistantMessage({
         {isToolResult ? (
           <>
             <ToolResult message={message} />
-            <Interrupt
-              interrupt={threadInterrupt}
-              isLastMessage={isLastMessage}
-              hasNoAIOrToolMessages={hasNoAIOrToolMessages}
-            />
           </>
         ) : (
           <>
@@ -205,11 +169,6 @@ export function AssistantMessage({
                 thread={thread}
               />
             )}
-            <Interrupt
-              interrupt={threadInterrupt}
-              isLastMessage={isLastMessage}
-              hasNoAIOrToolMessages={hasNoAIOrToolMessages}
-            />
             <div
               className={cn(
                 "mr-auto flex items-center gap-2 transition-opacity",

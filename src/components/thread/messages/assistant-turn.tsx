@@ -1,5 +1,6 @@
 import { Message } from "@langchain/langgraph-sdk";
 import { AssistantMessage } from "./ai";
+import { Interrupt } from "./interrupt";
 import { Thinking } from "./thinking";
 import { useStreamContext } from "@/providers/Stream";
 import { Checkpoint } from "@langchain/langgraph-sdk";
@@ -15,6 +16,9 @@ export function AssistantTurn({
   isLoading,
   handleRegenerate,
 }: AssistantTurnProps) {
+  const thread = useStreamContext();
+  const threadInterrupt = thread.interrupt;
+
   // Identify "Thinking" parts and "Final" parts
   // We want to group all Tool Calls and Tool Results into a Thinking box.
   // We also want to put intermediate text into the Thinking box if possible.
@@ -27,6 +31,7 @@ export function AssistantTurn({
   //    - If we are done loading, it is the "Final Answer".
   
   const lastMessage = messages[messages.length - 1];
+  const isLastGlobalMessage = thread.messages[thread.messages.length - 1]?.id === lastMessage?.id;
   const isLastMessageTool = lastMessage.type === "tool" || (lastMessage.type === "ai" && lastMessage.tool_calls && lastMessage.tool_calls.length > 0);
   
   let thinkingMessages: Message[] = [];
@@ -79,6 +84,12 @@ export function AssistantTurn({
           handleRegenerate={handleRegenerate}
         />
       ))}
+      
+      <Interrupt
+        interrupt={threadInterrupt}
+        isLastMessage={isLastGlobalMessage}
+        hasNoAIOrToolMessages={false}
+      />
     </div>
   );
 }
