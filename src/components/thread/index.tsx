@@ -417,7 +417,8 @@ export function Thread() {
                       }
                       return acc;
                     }, [] as { type: "human" | "assistant"; messages: BaseMessage[] }[])
-                    .map((group, groupIndex) => {
+                    .map((group, groupIndex, groupsArray) => {
+                      const isLastGroup = groupIndex === groupsArray.length - 1;
                       if (group.type === "human") {
                         return (
                           <HumanMessage
@@ -431,7 +432,7 @@ export function Thread() {
                           <AssistantTurn
                             key={group.messages[0].id || `assistant-turn-${groupIndex}`}
                             messages={group.messages}
-                            isLoading={isLoading}
+                            isLoading={isLoading && isLastGroup}
                             handleRegenerate={handleRegenerate}
                           />
                         );

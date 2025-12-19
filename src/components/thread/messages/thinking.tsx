@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { ChevronDown, ChevronRight, Brain, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -105,10 +105,47 @@ interface ThinkingProps {
   isLoading?: boolean;
 }
 
+const useThrottle = <T>(value: T, limit: number): T => {
+  const [throttledValue, setThrottledValue] = useState(value);
+  const lastRan = useRef(Date.now());
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (Date.now() - lastRan.current >= limit) {
+        setThrottledValue(value);
+        lastRan.current = Date.now();
+      }
+    }, limit - (Date.now() - lastRan.current));
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, limit]);
+
+  return throttledValue;
+};
+
+const ThinkingContent = memo(({ content }: { content: string }) => {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+      components={thinkingComponents}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+});
+ThinkingContent.displayName = "ThinkingContent";
+
 export function Thinking({ content, children, isLoading = false }: ThinkingProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [duration, setDuration] = useState(0);
   const startTimeRef = useRef<number | null>(null);
+
+  // Throttle content updates to avoid excessive re-renders during streaming
+  const throttledContent = useThrottle(content, 100);
+  const displayContent = isLoading ? throttledContent : content;
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -161,15 +198,7 @@ export function Thinking({ content, children, isLoading = false }: ThinkingProps
       </button>
       {isOpen && (
         <div className="px-4 pb-3 pt-1 text-sm text-muted-foreground/90">
-          {content && (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeKatex]}
-              components={thinkingComponents}
-            >
-              {content}
-            </ReactMarkdown>
-          )}
+          {displayContent && <ThinkingContent content={displayContent} />}
           {children}
         </div>
       )}
