@@ -245,7 +245,7 @@ const defaultComponents: any = {
 
 const MarkdownTextImpl: FC<{ children: string }> = ({ children }) => {
   return (
-    <div className="markdown-content">
+    <div className="markdown-content border shadow-md rounded-lg p-5 bg-card">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}

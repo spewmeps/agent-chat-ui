@@ -1,3 +1,15 @@
+import {
+  XIcon,
+  SendHorizontal,
+  RefreshCcw,
+  Pencil,
+  Copy,
+  CopyCheck,
+  ChevronLeft,
+  ChevronRight,
+  LoaderCircle,
+} from "lucide-react";
+import { useState, useEffect } from "react";
 import { parsePartialJson } from "@langchain/core/output_parsers";
 import { useStreamContext } from "@/providers/Stream";
 import { AIMessage, Checkpoint, Message } from "@langchain/langgraph-sdk";
@@ -216,13 +228,46 @@ export function AssistantMessage({
   );
 }
 
-export function AssistantMessageLoading() {
+export function AssistantMessageLoading({ startTime }: { startTime?: number }) {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    // If startTime is provided, calculate seconds based on it
+    if (startTime) {
+      const updateSeconds = () => {
+        setSeconds(Math.floor((Date.now() - startTime) / 1000));
+      };
+      updateSeconds();
+      const interval = setInterval(updateSeconds, 1000);
+      return () => clearInterval(interval);
+    } else {
+      // Fallback to local counter if no startTime provided
+      const interval = setInterval(() => {
+        setSeconds((s) => s + 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [startTime]);
+
+  // If less than 3 seconds have passed, do not show the loading message
+  if (seconds < 3) {
+    return null;
+  }
+
+  const formatTime = (totalSeconds: number) => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
+  };
+
   return (
     <div className="mr-auto flex items-start gap-2">
-      <div className="bg-muted flex h-8 items-center gap-1 rounded-2xl px-4 py-2">
-        <div className="bg-foreground/50 h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_infinite] rounded-full"></div>
-        <div className="bg-foreground/50 h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_0.5s_infinite] rounded-full"></div>
-        <div className="bg-foreground/50 h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_1s_infinite] rounded-full"></div>
+      <div className="bg-muted flex items-center gap-2 rounded-2xl px-4 py-2 text-sm text-foreground/80">
+        <LoaderCircle className="h-4 w-4 animate-spin" />
+        <span>Executing ({formatTime(seconds)})</span>
+        <span className="text-xs text-foreground/50 ml-2">
+          (预计耗时 2-5 分钟，请耐心等待，不要关闭或者切换页面哦)
+        </span>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import { ReactNode, useEffect, useRef } from "react";
+import { ReactNode, useEffect, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useStreamContext } from "@/providers/Stream";
@@ -12,6 +12,7 @@ import {
   DO_NOT_RENDER_ID_PREFIX,
   ensureToolCallsHaveResponses,
 } from "@/lib/ensure-tool-responses";
+import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
 import { LangGraphLogoSVG } from "../icons/langgraph";
 import { TooltipIconButton } from "./tooltip-icon-button";
 import {
@@ -139,8 +140,19 @@ export function Thread() {
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
   const stream = useStreamContext();
-  const messages = stream.messages;
+  const messages = useMemo(() => stream.values.messages ?? [], [stream.values.messages]);
   const isLoading = stream.isLoading;
+  const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null);
+  const wasLoading = useRef(false);
+
+  useEffect(() => {
+    if (isLoading && !wasLoading.current) {
+      setLoadingStartTime(Date.now());
+    } else if (!isLoading) {
+      setLoadingStartTime(null);
+    }
+    wasLoading.current = isLoading;
+  }, [isLoading]);
 
   const lastError = useRef<string | undefined>(undefined);
 
@@ -200,6 +212,38 @@ export function Thread() {
       return;
     setFirstTokenReceived(false);
 
+    const isInterruptReply =
+      !!stream.interrupt && !isAgentInboxInterruptSchema(stream.interrupt);
+    if (isInterruptReply && input.trim().length > 0) {
+      const interruptObj = Array.isArray(stream.interrupt)
+        ? (stream.interrupt[0] as any)
+        : (stream.interrupt as any);
+      const interruptId =
+        interruptObj && typeof interruptObj === "object"
+          ? interruptObj.id ?? interruptObj.interrupt_id ?? interruptObj.key
+          : undefined;
+      const resumeValue =
+        interruptId !== undefined
+          ? { [String(interruptId)]: input.trim() }
+          : { default: input.trim() };
+
+      stream.submit(
+        {},
+        {
+          command: {
+            resume: resumeValue,
+          },
+          streamMode: ["values"],
+          streamResumable: true,
+          onDisconnect: "continue",
+        },
+      );
+
+      setInput("");
+      setContentBlocks([]);
+      return;
+    }
+
     const newHumanMessage: Message = {
       id: uuidv4(),
       type: "human",
@@ -209,7 +253,7 @@ export function Thread() {
       ] as Message["content"],
     };
 
-    const toolMessages = ensureToolCallsHaveResponses(stream.messages);
+    const toolMessages = ensureToolCallsHaveResponses(stream.values.messages ?? []);
 
     const context =
       Object.keys(artifactContext).length > 0 ? artifactContext : undefined;
@@ -325,64 +369,51 @@ export function Thread() {
                   </Button>
                 )}
               </div>
-              <div className="absolute top-2 right-4 flex items-center">
-                <OpenGitHubRepo />
-              </div>
             </div>
           )}
           {chatStarted && (
-            <div className="relative z-10 flex items-center justify-between gap-3 p-2">
-              <div className="relative flex items-center justify-start gap-2">
-                <div className="absolute left-0 z-10">
-                  {(!chatHistoryOpen || !isLargeScreen) && (
-                    <Button
-                      className="hover:bg-gray-100"
-                      variant="ghost"
-                      onClick={() => setChatHistoryOpen((p) => !p)}
-                    >
-                      {chatHistoryOpen ? (
-                        <PanelRightOpen className="size-5" />
-                      ) : (
-                        <PanelRightClose className="size-5" />
-                      )}
-                    </Button>
-                  )}
-                </div>
+            <div className="relative z-10 flex items-center justify-between px-4 py-3 border-b bg-white/80 backdrop-blur-md sticky top-0">
+              <div className="flex items-center gap-3">
+                {(!chatHistoryOpen || !isLargeScreen) && (
+                  <Button
+                    className="hover:bg-gray-100 text-gray-500 h-8 w-8 p-0"
+                    variant="ghost"
+                    onClick={() => setChatHistoryOpen((p) => !p)}
+                  >
+                    {chatHistoryOpen ? (
+                      <PanelRightOpen className="size-5" />
+                    ) : (
+                      <PanelRightClose className="size-5" />
+                    )}
+                  </Button>
+                )}
                 <motion.button
-                  className="flex cursor-pointer items-center gap-2"
+                  className="flex cursor-pointer items-center group select-none"
                   onClick={() => setThreadId(null)}
-                  animate={{
-                    marginLeft: !chatHistoryOpen ? 48 : 0,
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30,
-                  }}
+                  animate={{ marginLeft: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 >
-                  <LangGraphLogoSVG
-                    width={32}
-                    height={32}
-                  />
-                  <span className="text-xl font-semibold tracking-tight">
-                    Agent Chat
-                  </span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-xl font-bold text-gray-900 tracking-tight font-sans">
+                      Euler
+                    </span>
+                    <span className="text-xl font-medium text-gray-500 tracking-tight font-sans">
+                      Copilot
+                    </span>
+                  </div>
                 </motion.button>
               </div>
 
               <div className="flex items-center gap-4">
-                <div className="flex items-center">
-                  <OpenGitHubRepo />
-                </div>
-                <TooltipIconButton
+                <Button
                   size="lg"
-                  className="p-4"
-                  tooltip="New thread"
+                  className="p-4 gap-2"
                   variant="ghost"
                   onClick={() => setThreadId(null)}
                 >
                   <SquarePen className="size-5" />
-                </TooltipIconButton>
+                  <span>创建会话</span>
+                </Button>
               </div>
 
               <div className="from-background to-background/0 absolute inset-x-0 top-full h-5 bg-gradient-to-b" />
@@ -427,19 +458,23 @@ export function Thread() {
                       handleRegenerate={handleRegenerate}
                     />
                   )}
-                  {isLoading && !firstTokenReceived && (
-                    <AssistantMessageLoading />
+                  {isLoading && (
+                    <AssistantMessageLoading startTime={loadingStartTime ?? undefined} />
                   )}
                 </>
               }
               footer={
                 <div className="sticky bottom-0 flex flex-col items-center gap-8 bg-white">
                   {!chatStarted && (
-                    <div className="flex items-center gap-3">
-                      <LangGraphLogoSVG className="h-8 flex-shrink-0" />
-                      <h1 className="text-2xl font-semibold tracking-tight">
-                        Agent Chat
-                      </h1>
+                    <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-500">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-5xl font-bold text-gray-900 tracking-tight font-sans">
+                          Euler
+                        </span>
+                        <span className="text-5xl font-medium text-gray-500 tracking-tight font-sans">
+                          Copilot
+                        </span>
+                      </div>
                     </div>
                   )}
 
@@ -484,7 +519,7 @@ export function Thread() {
                       />
 
                       <div className="flex items-center gap-6 p-2 pt-4">
-                        <div>
+                        <div className="hidden">
                           <div className="flex items-center space-x-2">
                             <Switch
                               id="render-tool-calls"
@@ -501,7 +536,7 @@ export function Thread() {
                         </div>
                         <Label
                           htmlFor="file-input"
-                          className="flex cursor-pointer items-center gap-2"
+                          className="flex cursor-pointer items-center gap-2 hidden"
                         >
                           <Plus className="size-5 text-gray-600" />
                           <span className="text-sm text-gray-600">
